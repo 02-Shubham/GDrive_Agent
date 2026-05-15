@@ -45,11 +45,21 @@ def handle_user_input(prompt: str):
                                 elif event_type == "tool_end":
                                     files_results = event.get("results", [])
                                     status_placeholder.empty()
+                                elif event_type == "error":
+                                    full_response = event.get("content", "An error occurred.")
+                                    status_placeholder.empty()
                             except json.JSONDecodeError:
                                 pass
         except requests.exceptions.ConnectionError:
-            st.error("Error: Could not connect to the backend server. Is it running?")
+            full_response = "⚠️ Could not connect to the backend server. Is it running on port 8000?"
+            message_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response, "files": []})
             return
+        except Exception:
+            # Catch ChunkedEncodingError and any other network-level errors
+            if not full_response:
+                full_response = "⚠️ The connection was interrupted. Please try again."
+            status_placeholder.empty()
             
         message_placeholder.markdown(full_response)
         

@@ -34,26 +34,31 @@ async def chat(request: ChatRequest):
         return {"message": res["messages"][-1].content, "session_id": request.session_id}
 
     async def event_generator():
-        async for event in agent.astream_events(inputs, config=config, version="v1"):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                content = event["data"]["chunk"].content
-                if content:
-                    yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
-            elif kind == "on_tool_start":
-                # Ensure we only track tools we own
-                if event["name"] == "drive_search":
-                    yield f"data: {json.dumps({'type': 'tool_start', 'tool': event['name']})}\n\n"
-            elif kind == "on_tool_end":
-                if event["name"] == "drive_search":
-                    try:
-                        output_str = event["data"].get("output", "[]")
-                        if isinstance(output_str, str):
-                            parsed = json.loads(output_str)
-                            yield f"data: {json.dumps({'type': 'tool_end', 'results': parsed})}\n\n"
-                    except Exception:
-                        pass
-        yield "data: [DONE]\n\n"
+        try:
+            async for event in agent.astream_events(inputs, config=config, version="v1"):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+                elif kind == "on_tool_start":
+                    if event["name"] == "drive_search":
+                        yield f"data: {json.dumps({'type': 'tool_start', 'tool': event['name']})}\n\n"
+                elif kind == "on_tool_end":
+                    if event["name"] == "drive_search":
+                        try:
+                            output_str = event["data"].get("output", "[]")
+                            if isinstance(output_str, str):
+                                parsed = json.loads(output_str)
+                                if isinstance(parsed, list):
+                                    yield f"data: {json.dumps({'type': 'tool_end', 'results': parsed})}\n\n"
+                        except Exception:
+                            pass
+        except Exception as e:
+            # Never drop the connection — send the error as a structured event
+            yield f"data: {json.dumps({'type': 'error', 'content': f'Something went wrong: {str(e)}'})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

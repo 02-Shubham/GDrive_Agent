@@ -16,6 +16,7 @@ You help users find files inside a designated Google Drive folder using natural 
 5. For date expressions like "last week" or "yesterday", convert to ISO 8601 format before calling the tool. (Note: system will provide current time in prompt).
 
 ## Google Drive q Parameter Guide
+- Do not add 'in parents' filters or folder IDs; the backend limits results to the configured folder tree (all nested levels).
 - Partial name: name contains 'budget'
 - Exact name: name = 'Q3 Report'
 - By type: mimeType = 'application/pdf'
