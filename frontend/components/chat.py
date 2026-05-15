@@ -68,7 +68,7 @@ def stream_and_append_assistant(prompt: str) -> None:
         files_results: list = []
         searches = 0
 
-        for event in iter_chat_events(prompt, st.session_state.session_id):
+        for event in iter_chat_events(prompt, st.session_state.session_id, st.session_state.get("folder_id")):
             event_type = event.get("type")
             if event_type == "token":
                 full_response += event.get("content", "")

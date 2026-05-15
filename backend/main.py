@@ -39,6 +39,9 @@ def health():
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
+    from backend.config import request_folder_id
+    request_folder_id.set(request.folder_id)
+    
     agent, config = get_agent_for_session(request.session_id)
     
     augmented_input = f"{request.message}\n\n(System Context: Current date and time is {datetime.now().isoformat()})"

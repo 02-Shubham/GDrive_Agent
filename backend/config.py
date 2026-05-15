@@ -2,6 +2,9 @@ from functools import lru_cache
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import contextvars
+
+request_folder_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("request_folder_id", default=None)
 
 
 class Settings(BaseSettings):
@@ -22,6 +25,17 @@ class Settings(BaseSettings):
     app_env: str = "development"
     backend_url: str = "http://localhost:8000"
     max_results: int = 20
+
+    @property
+    def google_sa_email(self) -> str:
+        import base64
+        import json
+        try:
+            sa_json = json.loads(base64.b64decode(self.google_sa_json_b64))
+            return sa_json.get("client_email", "")
+        except Exception:
+            return ""
+
 
 @lru_cache()
 def get_settings() -> Settings:

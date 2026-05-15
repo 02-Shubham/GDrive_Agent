@@ -4,6 +4,7 @@ import time
 from collections import deque
 
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
 from backend.config import get_settings
 from langchain_core.tools import BaseTool
@@ -116,29 +117,39 @@ def _drive_list_once(service, full_q: str, page_size: int) -> list[dict]:
     return result.get("files", [])
 
 
-def list_files_raw(q: str, max_results: int | None = None) -> list[dict]:
+def list_files_raw(q: str, folder_id: str | None = None, max_results: int | None = None) -> list[dict]:
+    from backend.config import request_folder_id
     service = get_drive_service()
     settings = get_settings()
     if max_results is None:
         max_results = settings.max_results
-    root_id = settings.drive_folder_id
-    folder_ids = _cached_folder_tree_ids(service, root_id)
+    
+    active_folder = folder_id or request_folder_id.get() or settings.drive_folder_id
+    
+    try:
+        folder_ids = _cached_folder_tree_ids(service, active_folder)
 
-    base = f"({q}) and trashed=false"
-    page_size = max(10, min(100, max_results * 5))
+        base = f"({q}) and trashed=false"
+        page_size = max(10, min(100, max_results * 5))
 
-    by_id: dict[str, dict] = {}
-    for folder_id in folder_ids:
-        full_q = f"{base} and ('{folder_id}' in parents)"
-        for f in _drive_list_once(service, full_q, page_size):
-            by_id[f["id"]] = f
+        by_id: dict[str, dict] = {}
+        for f_id in folder_ids:
+            full_q = f"{base} and ('{f_id}' in parents)"
+            for f in _drive_list_once(service, full_q, page_size):
+                by_id[f["id"]] = f
 
-    merged = sorted(
-        by_id.values(),
-        key=lambda x: x.get("modifiedTime") or "",
-        reverse=True,
-    )
-    return merged[:max_results]
+        merged = sorted(
+            by_id.values(),
+            key=lambda x: x.get("modifiedTime") or "",
+            reverse=True,
+        )
+        return merged[:max_results]
+    except HttpError as e:
+        if e.resp.status == 403:
+            raise ValueError(
+                f"Access denied. Share your folder with: {settings.google_sa_email} (Viewer access)"
+            )
+        raise
 
 
 def format_results(files: list[dict]) -> str:
