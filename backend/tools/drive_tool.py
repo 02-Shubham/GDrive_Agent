@@ -27,6 +27,19 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
+def file_is_in_scope(service, file_id: str) -> bool:
+    """True if the file's direct parent folder is in the configured root tree."""
+    settings = get_settings()
+    folder_ids = set(_cached_folder_tree_ids(service, settings.drive_folder_id))
+    meta = (
+        service.files()
+        .get(fileId=file_id, fields="parents", supportsAllDrives=True)
+        .execute()
+    )
+    parents = meta.get("parents") or []
+    return any(parent_id in folder_ids for parent_id in parents)
+
+
 def _list_kwargs(page_token: str | None = None) -> dict:
     kwargs: dict = {
         "supportsAllDrives": True,

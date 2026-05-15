@@ -1,11 +1,27 @@
-from fastapi import FastAPI
+import re
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.models.request import ChatRequest
+from backend.models.session import SessionHistoryResponse, SessionHistoryUpdate
 from backend.session import get_agent_for_session, clear_session_data
+from backend.session_store import load_session_data, save_session_data
+from backend.errors import friendly_llm_error
 import json
-from langchain_core.messages import HumanMessage, AIMessageChunk
+from langchain_core.messages import HumanMessage
 from datetime import datetime
+
+SESSION_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _validate_session_id(session_id: str) -> str:
+    if not SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id")
+    return session_id
 
 app = FastAPI(title="GDrive Intelligence API", version="1.0.0")
 
@@ -42,7 +58,7 @@ async def chat(request: ChatRequest):
                     if content:
                         yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
                 elif kind == "on_tool_start":
-                    if event["name"] == "drive_search":
+                    if event["name"] in ("drive_search", "drive_read_file"):
                         yield f"data: {json.dumps({'type': 'tool_start', 'tool': event['name']})}\n\n"
                 elif kind == "on_tool_end":
                     if event["name"] == "drive_search":
@@ -55,14 +71,38 @@ async def chat(request: ChatRequest):
                         except Exception:
                             pass
         except Exception as e:
-            # Never drop the connection — send the error as a structured event
-            yield f"data: {json.dumps({'type': 'error', 'content': f'Something went wrong: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': friendly_llm_error(e)})}\n\n"
         finally:
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.get("/session/{session_id}", response_model=SessionHistoryResponse)
+def get_session_history(session_id: str):
+    session_id = _validate_session_id(session_id)
+    data = load_session_data(session_id)
+    if not data:
+        return SessionHistoryResponse(session_id=session_id)
+    return SessionHistoryResponse(
+        session_id=session_id,
+        messages=data.get("messages", []),
+        search_count=data.get("search_count", 0),
+    )
+
+
+@app.put("/session/{session_id}", response_model=SessionHistoryResponse)
+def save_session_history(session_id: str, body: SessionHistoryUpdate):
+    session_id = _validate_session_id(session_id)
+    payload = {
+        "messages": body.messages,
+        "search_count": body.search_count,
+    }
+    save_session_data(session_id, payload)
+    return SessionHistoryResponse(session_id=session_id, **payload)
+
+
 @app.delete("/session/{session_id}")
 def clear_session(session_id: str):
+    session_id = _validate_session_id(session_id)
     clear_session_data(session_id)
     return {"status": "cleared", "session_id": session_id}

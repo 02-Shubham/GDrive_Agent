@@ -1,4 +1,5 @@
 credentials/
+data/sessions/
 .env
 __pycache__/
 *.pyc
