@@ -78,23 +78,23 @@ def render_sidebar():
             settings = get_settings()
             st.code(settings.google_sa_email, language=None)
 
-            st.markdown("""
-            Give it **Viewer** access. Takes 10 seconds.
+            # st.markdown("""
+            # Give it **Viewer** access. Takes 10 seconds.
 
-            **Step 4 — Start searching**
-            Type naturally in the chat. Examples:
+            # **Step 4 — Start searching**
+            # Type naturally in the chat. Examples:
 
-            | What you want | What to type |
-            |---|---|
-            | Find by name | *"find the budget file"* |
-            | Find by type | *"show all PDFs"* |
-            | Search inside files | *"files mentioning revenue"* |
-            | Filter by date | *"files from last week"* |
-            | Combine filters | *"PDFs about Q3 from last month"* |
+            # | What you want | What to type |
+            # |---|---|
+            # | Find by name | *"find the budget file"* |
+            # | Find by type | *"show all PDFs"* |
+            # | Search inside files | *"files mentioning revenue"* |
+            # | Filter by date | *"files from last week"* |
+            # | Combine filters | *"PDFs about Q3 from last month"* |
 
-            ---
-            *Default folder is always available as fallback.*
-            """)
+            # ---
+            # *Default folder is always available as fallback.*
+            # """)
         else:
             # toggle OFF — clear any custom folder, use default
             st.session_state["folder_id"] = None

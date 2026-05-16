@@ -66,7 +66,9 @@ async def chat(request: ChatRequest):
                 elif kind == "on_tool_end":
                     if event["name"] == "drive_search":
                         try:
-                            output_str = event["data"].get("output", "[]")
+                            output_obj = event["data"].get("output")
+                            output_str = getattr(output_obj, "content", str(output_obj))
+                            
                             if isinstance(output_str, str):
                                 parsed = json.loads(output_str)
                                 if isinstance(parsed, list):

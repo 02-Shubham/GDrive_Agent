@@ -184,7 +184,7 @@ class DriveSearchTool(BaseTool):
     def _run(self, q: str, max_results: int | None = None) -> str:
         try:
             cap = max_results if max_results is not None else get_settings().max_results
-            files = list_files_raw(q, cap)
+            files = list_files_raw(q, max_results=cap)
             if not files:
                 return "No files found matching your query."
             return format_results(files)
